@@ -33,9 +33,21 @@ app = FastAPI(
 )
 
 # Enable CORS for frontend
+# Allow both GitHub Pages and localhost for development
+ALLOWED_ORIGINS = [
+    "https://itseemedlikeagoodideaatthetime.github.io",
+    "http://localhost:8000",
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
+]
+
+# In development, allow all origins
+if os.environ.get("ENVIRONMENT") == "development":
+    ALLOWED_ORIGINS = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to specific origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
