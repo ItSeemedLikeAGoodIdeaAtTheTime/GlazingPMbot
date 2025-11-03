@@ -1,0 +1,38 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Project Data
+Input/*/
+Projects/*/
+Archive/*/
+Output/*/
+Logs/*.csv
+
+# Keep directory structure
+!Input/.gitkeep
+!Projects/.gitkeep
+!Archive/.gitkeep
+!Output/.gitkeep
+!Logs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+credentials.json

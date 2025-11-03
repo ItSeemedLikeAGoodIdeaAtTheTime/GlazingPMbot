@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glazing PM AI - Project Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #718096;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .upload-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .upload-box {
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .upload-box.has-file {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .upload-box label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .upload-box input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .file-name {
+            font-size: 0.9em;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #48bb78;
+        }
+
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .status.loading {
+            background: #bee3f8;
+            color: #2c5282;
+            border: 1px solid #4299e1;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .scope-list {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .scope-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .scope-item strong {
+            color: #2d3748;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .scope-item .vendors {
+            color: #718096;
+            font-size: 0.9em;
+        }
+
+        .download-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .download-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4299e1;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            text-align: center;
+            transition: background 0.2s;
+        }
+
+        .download-btn:hover {
+            background: #3182ce;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Glazing PM AI</h1>
+            <p class="subtitle">Commercial Glazing Project Management Automation</p>
+        </div>
+
+        <div class="card">
+            <h2>Upload Project Documents</h2>
+
+            <div class="input-group">
+                <label for="projectName">Project Name</label>
+                <input type="text" id="projectName" placeholder="e.g., City Hospital Emergency Dept" required>
+            </div>
+
+            <div class="upload-section">
+                <div class="upload-box" onclick="document.getElementById('contract').click()">
+                    <div class="upload-icon">📄</div>
+                    <label>Contract</label>
+                    <input type="file" id="contract" accept=".pdf" onchange="handleFileSelect(this, 'contract')">
+                    <div class="file-name" id="contract-name">Click to upload PDF</div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('specifications').click()">
+                    <div class="upload-icon">📋</div>
+                    <label>Specifications</label>
+                    <input type="file" id="specifications" accept=".pdf" onchange="handleFileSelect(this, 'specifications')">
+                    <div class="file-name" id="specifications-name">Click to upload PDF</div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('drawings').click()">
+                    <div class="upload-icon">📐</div>
+                    <label>Drawings</label>
+                    <input type="file" id="drawings" accept=".pdf" onchange="handleFileSelect(this, 'drawings')">
+                    <div class="file-name" id="drawings-name">Click to upload PDF</div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('schedule').click()">
+                    <div class="upload-icon">📅</div>
+                    <label>Schedule</label>
+                    <input type="file" id="schedule" accept=".pdf" onchange="handleFileSelect(this, 'schedule')">
+                    <div class="file-name" id="schedule-name">Click to upload PDF</div>
+                </div>
+
+                <div class="upload-box" onclick="document.getElementById('proposal').click()">
+                    <div class="upload-icon">💰</div>
+                    <label>Proposal (Optional)</label>
+                    <input type="file" id="proposal" accept=".pdf" onchange="handleFileSelect(this, 'proposal')">
+                    <div class="file-name" id="proposal-name">Click to upload PDF</div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="uploadDocuments()">Upload & Initialize Project</button>
+
+            <div id="uploadStatus" class="status"></div>
+        </div>
+
+        <div class="card" id="sovCard" style="display: none;">
+            <h2>Generate Schedule of Values</h2>
+            <p style="margin-bottom: 20px; color: #718096;">
+                Project initialized. Click below to analyze documents and generate SOV with scope/vendor breakdown.
+            </p>
+
+            <button class="btn btn-secondary" onclick="generateSOV()">Generate Schedule of Values</button>
+
+            <div id="sovStatus" class="status"></div>
+
+            <div id="results" class="results">
+                <h3>Generated Documents</h3>
+
+                <div id="scopes"></div>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px;">Download Files:</h4>
+                <div class="download-links" id="downloadLinks"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let currentProjectNumber = null;
+
+        function handleFileSelect(input, type) {
+            const file = input.files[0];
+            if (file) {
+                document.getElementById(`${type}-name`).textContent = file.name;
+                input.closest('.upload-box').classList.add('has-file');
+            }
+        }
+
+        function showStatus(elementId, type, message) {
+            const status = document.getElementById(elementId);
+            status.className = `status ${type}`;
+            status.textContent = message;
+            status.style.display = 'block';
+        }
+
+        async function uploadDocuments() {
+            const projectName = document.getElementById('projectName').value;
+            if (!projectName) {
+                alert('Please enter a project name');
+                return;
+            }
+
+            // Check if at least one file is selected
+            const files = ['contract', 'specifications', 'drawings', 'schedule', 'proposal'];
+            const hasFiles = files.some(type => document.getElementById(type).files.length > 0);
+
+            if (!hasFiles) {
+                alert('Please upload at least one document');
+                return;
+            }
+
+            showStatus('uploadStatus', 'loading', 'Uploading documents...');
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('project_name', projectName);
+
+            files.forEach(type => {
+                const input = document.getElementById(type);
+                if (input.files.length > 0) {
+                    formData.append(type, input.files[0]);
+                }
+            });
+
+            try {
+                // Upload files
+                const uploadResponse = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) throw new Error('Upload failed');
+
+                // Initialize project
+                const initResponse = await fetch(`${API_URL}/api/project/initialize`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ project_name: projectName })
+                });
+
+                if (!initResponse.ok) throw new Error('Project initialization failed');
+
+                const result = await initResponse.json();
+                currentProjectNumber = result.project_number;
+
+                showStatus('uploadStatus', 'success',
+                    `✓ Project ${result.project_number} initialized successfully!`);
+
+                // Show SOV card
+                document.getElementById('sovCard').style.display = 'block';
+                document.getElementById('sovCard').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                showStatus('uploadStatus', 'error', `Error: ${error.message}`);
+            }
+        }
+
+        async function generateSOV() {
+            if (!currentProjectNumber) {
+                alert('Please upload documents first');
+                return;
+            }
+
+            showStatus('sovStatus', 'loading',
+                'Analyzing documents and generating SOV... This may take 1-2 minutes.');
+
+            try {
+                const response = await fetch(`${API_URL}/api/project/generate-sov`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_number: currentProjectNumber,
+                        include_budget: true,
+                        include_billing_schedule: true
+                    })
+                });
+
+                if (!response.ok) throw new Error('SOV generation failed');
+
+                const result = await response.json();
+
+                showStatus('sovStatus', 'success', '✓ SOV generated successfully!');
+
+                // Display scopes
+                displayScopes(result.scopes);
+
+                // Show download links
+                displayDownloadLinks(currentProjectNumber);
+
+                // Show results section
+                document.getElementById('results').style.display = 'block';
+
+            } catch (error) {
+                showStatus('sovStatus', 'error', `Error: ${error.message}`);
+            }
+        }
+
+        function displayScopes(scopes) {
+            const scopesDiv = document.getElementById('scopes');
+            scopesDiv.innerHTML = '<h4>Identified Scopes & Vendors:</h4>';
+
+            const list = document.createElement('ul');
+            list.className = 'scope-list';
+
+            scopes.forEach(scope => {
+                const item = document.createElement('li');
+                item.className = 'scope-item';
+
+                const vendors = scope.vendors.length > 0
+                    ? scope.vendors.join(', ')
+                    : 'No vendors matched';
+
+                item.innerHTML = `
+                    <strong>${scope.type}</strong>
+                    <div>${scope.description}</div>
+                    <div class="vendors">Vendors: ${vendors}</div>
+                `;
+
+                list.appendChild(item);
+            });
+
+            scopesDiv.appendChild(list);
+        }
+
+        function displayDownloadLinks(projectNumber) {
+            const linksDiv = document.getElementById('downloadLinks');
+            linksDiv.innerHTML = '';
+
+            const files = [
+                { type: 'sov_csv', label: 'SOV (CSV)' },
+                { type: 'sov_json', label: 'SOV (JSON)' },
+                { type: 'budget', label: 'Internal Budget' },
+                { type: 'billing', label: 'Billing Schedule' },
+                { type: 'scope', label: 'Scope Analysis' },
+                { type: 'analysis', label: 'Contract Analysis' }
+            ];
+
+            files.forEach(file => {
+                const link = document.createElement('a');
+                link.href = `${API_URL}/api/download/${file.type}/${projectNumber}`;
+                link.className = 'download-btn';
+                link.textContent = file.label;
+                link.download = true;
+                linksDiv.appendChild(link);
+            });
+        }
+    </script>
+</body>
+</html>
