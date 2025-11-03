@@ -307,9 +307,14 @@
         </div>
     </div>
 
+    <script src="config.js"></script>
     <script>
-        const API_URL = 'http://localhost:8000';
+        const API_URL = CONFIG.API_URL;
         let currentProjectNumber = null;
+
+        // Show which environment we're in
+        console.log(`Running in ${CONFIG.isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'} mode`);
+        console.log(`API URL: ${API_URL}`);
 
         function handleFileSelect(input, type) {
             const file = input.files[0];
