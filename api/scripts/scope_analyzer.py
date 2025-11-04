@@ -49,8 +49,8 @@ class ScopeAnalyzer:
         with open(scope_path, 'r', encoding='utf-8') as f:
             self.scope_definitions = f.read()
 
-    def analyze_project_scope(self, project_number, contract_analysis=None):
-        """Analyze project and identify scopes"""
+    def analyze_project_scope(self, project_number, contract_analysis=None, selected_vendors=None):
+        """Analyze project and identify scopes with optional vendor filtering"""
 
         print(f"\n{'='*70}")
         print(f"  SCOPE ANALYSIS: {project_number}")
@@ -65,6 +65,17 @@ class ScopeAnalyzer:
 
             with open(analysis_file, 'r', encoding='utf-8') as f:
                 contract_analysis = json.load(f)
+
+        # Filter vendors if selection provided
+        available_vendors = self.vendors
+        if selected_vendors:
+            available_vendors = [
+                v for v in self.vendors
+                if v['Vendor Name'].lower().replace(' ', '_') in selected_vendors
+            ]
+            print(f"📋 Using {len(available_vendors)} selected vendors (out of {len(self.vendors)} total)\n")
+        else:
+            print(f"📋 Using all {len(self.vendors)} vendors\n")
 
         print("[1/4] Analyzing contract requirements...")
 
@@ -139,7 +150,7 @@ Return JSON with this structure:
         print("\n[2/4] Matching vendors to scopes...")
 
         for scope in scope_analysis['scopes']:
-            scope['matched_vendors'] = self._match_vendors_to_scope(scope)
+            scope['matched_vendors'] = self._match_vendors_to_scope(scope, available_vendors)
 
         # Generate RFQ recommendations
         print("\n[3/4] Generating RFQ recommendations...")
@@ -180,7 +191,7 @@ Return JSON with this structure:
             'output_file': str(output_file)
         }
 
-    def _match_vendors_to_scope(self, scope):
+    def _match_vendors_to_scope(self, scope, available_vendors):
         """Match vendors capable of providing materials for this scope"""
 
         scope_type = scope['scope_type'].upper()
@@ -206,7 +217,7 @@ Return JSON with this structure:
         for material in needed_materials:
             material_vendors = []
 
-            for vendor in self.vendors:
+            for vendor in available_vendors:
                 # Check if vendor provides this material
                 if vendor.get(material, 'No') == 'Yes':
                     material_vendors.append({

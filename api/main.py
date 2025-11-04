@@ -57,6 +57,7 @@ app.add_middleware(
 # Request/Response Models
 class ProjectRequest(BaseModel):
     project_name: str
+    selected_vendors: Optional[List[str]] = None
 
 
 class ProjectResponse(BaseModel):
@@ -119,6 +120,54 @@ async def health_check():
         "directories": "ok" if dirs_exist else "missing",
         "timestamp": datetime.now().isoformat()
     }
+
+
+# Get vendors
+@app.get("/api/vendors")
+async def get_vendors():
+    """Get all vendors from capability matrix"""
+
+    try:
+        import csv
+
+        vendor_file = Path("Vendor_Data/vendor_capability_matrix.csv")
+        if not vendor_file.exists():
+            return []
+
+        vendors = []
+        with open(vendor_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Extract capabilities (columns with Yes/No values)
+                capabilities = []
+                capability_fields = [
+                    "Aluminum Framing", "Glass Monolithic", "Glass IGU",
+                    "Glass Fire-Rated", "Glass Specialty", "Door Hardware",
+                    "All-Glass Hardware", "Sealants", "Anchors",
+                    "Metal Panels", "Paint Finishing"
+                ]
+
+                for field in capability_fields:
+                    if row.get(field, '').strip().lower() == 'yes':
+                        capabilities.append(field)
+
+                vendors.append({
+                    "id": row['Vendor Name'].lower().replace(' ', '_'),
+                    "name": row['Vendor Name'],
+                    "contact": row.get('Primary Contact', ''),
+                    "category": row.get('Category', ''),
+                    "phone": row.get('Phone', ''),
+                    "email": row.get('Email', ''),
+                    "lead_time": row.get('Lead Time', ''),
+                    "notes": row.get('Notes', ''),
+                    "capabilities": capabilities,
+                    "active": True  # Default all to active
+                })
+
+        return vendors
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Upload documents
@@ -185,6 +234,7 @@ async def initialize_project(request: ProjectRequest, background_tasks: Backgrou
     Initialize new project
 
     Moves files from Input to Projects folder and creates project number
+    Stores selected vendor preferences for SOV generation
     """
 
     try:
@@ -194,11 +244,24 @@ async def initialize_project(request: ProjectRequest, background_tasks: Backgrou
         if not result['success']:
             raise HTTPException(status_code=400, detail=result.get('error', 'Initialization failed'))
 
+        project_number = result['project_number']
+
+        # Save vendor preferences if provided
+        if request.selected_vendors:
+            vendor_prefs_file = Path(f"Projects/{project_number}-{request.project_name}/vendor_preferences.json")
+            vendor_prefs_file.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(vendor_prefs_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    "selected_vendors": request.selected_vendors,
+                    "timestamp": datetime.now().isoformat()
+                }, f, indent=2)
+
         return ProjectResponse(
             success=True,
-            project_number=result['project_number'],
+            project_number=project_number,
             project_name=request.project_name,
-            message=f"Project {result['project_number']} initialized"
+            message=f"Project {project_number} initialized with {len(request.selected_vendors or [])} vendors"
         )
 
     except Exception as e:
@@ -239,9 +302,23 @@ async def generate_sov(request: SOVRequest):
         with open(analysis_file, 'r', encoding='utf-8') as f:
             contract_analysis = json.load(f)
 
-        # Step 2: Run scope analysis
+        # Load vendor preferences if available
+        selected_vendors = None
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if project_folders:
+            vendor_prefs_file = project_folders[0] / "vendor_preferences.json"
+            if vendor_prefs_file.exists():
+                with open(vendor_prefs_file, 'r', encoding='utf-8') as f:
+                    prefs = json.load(f)
+                    selected_vendors = prefs.get('selected_vendors')
+
+        # Step 2: Run scope analysis with vendor preferences
         analyzer = ScopeAnalyzer()
-        scope_result = analyzer.analyze_project_scope(project_number, contract_analysis)
+        scope_result = analyzer.analyze_project_scope(
+            project_number,
+            contract_analysis,
+            selected_vendors=selected_vendors
+        )
 
         if not scope_result['success']:
             raise HTTPException(status_code=500, detail="Scope analysis failed")
