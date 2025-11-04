@@ -48,6 +48,8 @@ app.add_middleware(
 class ProjectRequest(BaseModel):
     project_name: str
     selected_vendors: Optional[List[str]] = None
+    pm_email: str
+    assistant_email: Optional[str] = None
 
 
 class ProjectResponse(BaseModel):
@@ -236,11 +238,27 @@ async def initialize_project(request: ProjectRequest, background_tasks: Backgrou
 
         project_number = result['project_number']
 
-        # Save vendor preferences if provided
-        if request.selected_vendors:
-            vendor_prefs_file = Path(f"Projects/{project_number}-{request.project_name}/vendor_preferences.json")
-            vendor_prefs_file.parent.mkdir(parents=True, exist_ok=True)
+        # Save project info (vendor preferences and PM emails)
+        project_folder = Path(f"Projects/{project_number}-{request.project_name}")
+        project_folder.mkdir(parents=True, exist_ok=True)
 
+        project_info = {
+            "project_number": project_number,
+            "project_name": request.project_name,
+            "pm_email": request.pm_email,
+            "assistant_email": request.assistant_email,
+            "selected_vendors": request.selected_vendors or [],
+            "created_date": datetime.now().isoformat()
+        }
+
+        # Save to project_info.json
+        project_info_file = project_folder / "project_info.json"
+        with open(project_info_file, 'w', encoding='utf-8') as f:
+            json.dump(project_info, f, indent=2)
+
+        # Also save vendor_preferences.json for backwards compatibility
+        if request.selected_vendors:
+            vendor_prefs_file = project_folder / "vendor_preferences.json"
             with open(vendor_prefs_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     "selected_vendors": request.selected_vendors,
