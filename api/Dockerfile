@@ -9,19 +9,17 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements files
+# Copy requirements file
 COPY requirements.txt .
-COPY ../requirements.txt ./requirements-parent.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-parent.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Copy parent scripts directory
-COPY ../scripts /app/scripts
+# Create required directories
+RUN mkdir -p Input Output Projects Logs Vendor_Data
 
 # Expose port (Cloud Run will set $PORT)
 ENV PORT=8080

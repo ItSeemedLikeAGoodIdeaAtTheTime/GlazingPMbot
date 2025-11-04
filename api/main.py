@@ -16,8 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add current directory to path for local imports
+sys.path.insert(0, str(Path(__file__).parent))
 
 from scripts.file_mover import FileMover
 from scripts.contract_processor import ContractProcessor

@@ -1,0 +1,541 @@
+{
+  "cost_code_structure": {
+    "description": "Internal budget tracking cost codes - NOT for client-facing SOV",
+    "categories": {
+      "LABOR_FIELD_GLAZIERS": {
+        "code_prefix": "L-GLZ",
+        "description": "Field glazing labor",
+        "line_items": [
+          {
+            "code": "L-GLZ-001",
+            "name": "Glaziers - Foreman",
+            "unit": "hour",
+            "typical_rate": 85.00
+          },
+          {
+            "code": "L-GLZ-002",
+            "name": "Glaziers - Journeyman",
+            "unit": "hour",
+            "typical_rate": 65.00
+          },
+          {
+            "code": "L-GLZ-003",
+            "name": "Glaziers - Apprentice",
+            "unit": "hour",
+            "typical_rate": 45.00
+          }
+        ]
+      },
+      "LABOR_FIELD_CAULKERS": {
+        "code_prefix": "L-CLK",
+        "description": "Field caulking labor",
+        "line_items": [
+          {
+            "code": "L-CLK-001",
+            "name": "Caulkers - Foreman",
+            "unit": "hour",
+            "typical_rate": 80.00
+          },
+          {
+            "code": "L-CLK-002",
+            "name": "Caulkers - Journeyman",
+            "unit": "hour",
+            "typical_rate": 60.00
+          },
+          {
+            "code": "L-CLK-003",
+            "name": "Caulkers - Apprentice",
+            "unit": "hour",
+            "typical_rate": 42.00
+          }
+        ]
+      },
+      "LABOR_SHOP": {
+        "code_prefix": "L-SHP",
+        "description": "In-shop fabrication labor",
+        "line_items": [
+          {
+            "code": "L-SHP-001",
+            "name": "In-Shop Labor - Foreman",
+            "unit": "hour",
+            "typical_rate": 75.00
+          },
+          {
+            "code": "L-SHP-002",
+            "name": "In-Shop Labor - Journeyman",
+            "unit": "hour",
+            "typical_rate": 55.00
+          },
+          {
+            "code": "L-SHP-003",
+            "name": "In-Shop Labor - Apprentice",
+            "unit": "hour",
+            "typical_rate": 38.00
+          }
+        ]
+      },
+      "LABOR_DOOR_GLAZIERS": {
+        "code_prefix": "L-DGZ",
+        "description": "Door glazing specialists",
+        "line_items": [
+          {
+            "code": "L-DGZ-001",
+            "name": "Door Glaziers - Foreman",
+            "unit": "hour",
+            "typical_rate": 85.00
+          },
+          {
+            "code": "L-DGZ-002",
+            "name": "Door Glaziers - Journeyman",
+            "unit": "hour",
+            "typical_rate": 65.00
+          },
+          {
+            "code": "L-DGZ-003",
+            "name": "Door Glaziers - Apprentice",
+            "unit": "hour",
+            "typical_rate": 45.00
+          }
+        ]
+      },
+      "GLASS_MONOLITHIC": {
+        "code_prefix": "M-GLM",
+        "description": "Monolithic glass (single-pane)",
+        "line_items": [
+          {
+            "code": "M-GLM-001",
+            "name": "Monolithic Glass - Clear Annealed",
+            "unit": "sqft",
+            "typical_rate": 15.00
+          },
+          {
+            "code": "M-GLM-002",
+            "name": "Monolithic Glass - Tempered",
+            "unit": "sqft",
+            "typical_rate": 22.00
+          },
+          {
+            "code": "M-GLM-003",
+            "name": "Monolithic Glass - Laminated",
+            "unit": "sqft",
+            "typical_rate": 28.00
+          }
+        ]
+      },
+      "GLASS_IGU": {
+        "code_prefix": "M-IGU",
+        "description": "Insulated glass units (double-pane)",
+        "line_items": [
+          {
+            "code": "M-IGU-001",
+            "name": "IGU - Standard Clear",
+            "unit": "sqft",
+            "typical_rate": 35.00
+          },
+          {
+            "code": "M-IGU-002",
+            "name": "IGU - Low-E",
+            "unit": "sqft",
+            "typical_rate": 42.00
+          },
+          {
+            "code": "M-IGU-003",
+            "name": "IGU - High-Performance",
+            "unit": "sqft",
+            "typical_rate": 55.00
+          }
+        ]
+      },
+      "GLASS_FIRE_RATED": {
+        "code_prefix": "M-FRG",
+        "description": "Fire-rated glazing",
+        "line_items": [
+          {
+            "code": "M-FRG-001",
+            "name": "Fire-Rated Glass - 20-45 min",
+            "unit": "sqft",
+            "typical_rate": 120.00
+          },
+          {
+            "code": "M-FRG-002",
+            "name": "Fire-Rated Glass - 60-90 min",
+            "unit": "sqft",
+            "typical_rate": 180.00
+          },
+          {
+            "code": "M-FRG-003",
+            "name": "Fire-Rated Glass - 120 min",
+            "unit": "sqft",
+            "typical_rate": 240.00
+          }
+        ]
+      },
+      "GLASS_SPECIALTY": {
+        "code_prefix": "M-SPG",
+        "description": "Specialty glass products",
+        "line_items": [
+          {
+            "code": "M-SPG-001",
+            "name": "Lead Glass (X-Ray)",
+            "unit": "sqft",
+            "typical_rate": 350.00
+          },
+          {
+            "code": "M-SPG-002",
+            "name": "Bullet-Resistant Glass",
+            "unit": "sqft",
+            "typical_rate": 500.00
+          },
+          {
+            "code": "M-SPG-003",
+            "name": "Mirrors",
+            "unit": "sqft",
+            "typical_rate": 18.00
+          },
+          {
+            "code": "M-SPG-004",
+            "name": "Decorative/Art Glass",
+            "unit": "sqft",
+            "typical_rate": 200.00
+          }
+        ]
+      },
+      "METAL_DOORS": {
+        "code_prefix": "M-MDR",
+        "description": "Metal door frames and systems",
+        "line_items": [
+          {
+            "code": "M-MDR-001",
+            "name": "Aluminum Door Frames",
+            "unit": "each",
+            "typical_rate": 450.00
+          },
+          {
+            "code": "M-MDR-002",
+            "name": "Hollow Metal Frames",
+            "unit": "each",
+            "typical_rate": 350.00
+          },
+          {
+            "code": "M-MDR-003",
+            "name": "All-Glass Door Systems",
+            "unit": "each",
+            "typical_rate": 1200.00
+          }
+        ]
+      },
+      "METAL_WINDOWS": {
+        "code_prefix": "M-MWN",
+        "description": "Metal window systems",
+        "line_items": [
+          {
+            "code": "M-MWN-001",
+            "name": "Storefront Framing",
+            "unit": "linft",
+            "typical_rate": 65.00
+          },
+          {
+            "code": "M-MWN-002",
+            "name": "Curtain Wall System",
+            "unit": "sqft",
+            "typical_rate": 85.00
+          },
+          {
+            "code": "M-MWN-003",
+            "name": "Metal Panels/Spandrels",
+            "unit": "sqft",
+            "typical_rate": 55.00
+          }
+        ]
+      },
+      "HARDWARE_HINGES": {
+        "code_prefix": "H-HNG",
+        "description": "Door hinges and pivots",
+        "line_items": [
+          {
+            "code": "H-HNG-001",
+            "name": "Standard Hinges",
+            "unit": "set",
+            "typical_rate": 45.00
+          },
+          {
+            "code": "H-HNG-002",
+            "name": "Heavy-Duty Hinges",
+            "unit": "set",
+            "typical_rate": 85.00
+          },
+          {
+            "code": "H-HNG-003",
+            "name": "Pivot Hardware",
+            "unit": "set",
+            "typical_rate": 350.00
+          }
+        ]
+      },
+      "HARDWARE_LATCHING": {
+        "code_prefix": "H-LCH",
+        "description": "Latching mechanisms and locks",
+        "line_items": [
+          {
+            "code": "H-LCH-001",
+            "name": "Locksets - Standard",
+            "unit": "each",
+            "typical_rate": 250.00
+          },
+          {
+            "code": "H-LCH-002",
+            "name": "Locksets - High-Security",
+            "unit": "each",
+            "typical_rate": 450.00
+          },
+          {
+            "code": "H-LCH-003",
+            "name": "Panic Devices",
+            "unit": "each",
+            "typical_rate": 650.00
+          },
+          {
+            "code": "H-LCH-004",
+            "name": "Exit Devices",
+            "unit": "each",
+            "typical_rate": 550.00
+          }
+        ]
+      },
+      "HARDWARE_OPERATORS": {
+        "code_prefix": "H-OPR",
+        "description": "Automatic door operators",
+        "line_items": [
+          {
+            "code": "H-OPR-001",
+            "name": "Automatic Operators - Swing",
+            "unit": "each",
+            "typical_rate": 3500.00
+          },
+          {
+            "code": "H-OPR-002",
+            "name": "Automatic Operators - Sliding",
+            "unit": "each",
+            "typical_rate": 4200.00
+          }
+        ]
+      },
+      "HARDWARE_ACCESSORIES": {
+        "code_prefix": "H-ACC",
+        "description": "Other door hardware accessories",
+        "line_items": [
+          {
+            "code": "H-ACC-001",
+            "name": "Door Closers",
+            "unit": "each",
+            "typical_rate": 280.00
+          },
+          {
+            "code": "H-ACC-002",
+            "name": "Thresholds",
+            "unit": "each",
+            "typical_rate": 85.00
+          },
+          {
+            "code": "H-ACC-003",
+            "name": "Weatherstripping",
+            "unit": "linft",
+            "typical_rate": 12.00
+          },
+          {
+            "code": "H-ACC-004",
+            "name": "Push/Pull Hardware",
+            "unit": "set",
+            "typical_rate": 180.00
+          }
+        ]
+      },
+      "SEALANTS_STRUCTURAL": {
+        "code_prefix": "S-STR",
+        "description": "Structural silicone sealants",
+        "line_items": [
+          {
+            "code": "S-STR-001",
+            "name": "Structural Silicone - 2-Part",
+            "unit": "linft",
+            "typical_rate": 8.50
+          },
+          {
+            "code": "S-STR-002",
+            "name": "Structural Tape/VHB",
+            "unit": "linft",
+            "typical_rate": 6.00
+          }
+        ]
+      },
+      "SEALANTS_WEATHER": {
+        "code_prefix": "S-WTH",
+        "description": "Weatherproofing sealants",
+        "line_items": [
+          {
+            "code": "S-WTH-001",
+            "name": "Perimeter Sealant - Silicone",
+            "unit": "linft",
+            "typical_rate": 4.50
+          },
+          {
+            "code": "S-WTH-002",
+            "name": "Perimeter Sealant - Polyurethane",
+            "unit": "linft",
+            "typical_rate": 5.00
+          },
+          {
+            "code": "S-WTH-003",
+            "name": "Joint Sealant",
+            "unit": "linft",
+            "typical_rate": 3.50
+          }
+        ]
+      },
+      "SEALANTS_BEAUTY": {
+        "code_prefix": "S-BTY",
+        "description": "Interior beauty/finish sealants",
+        "line_items": [
+          {
+            "code": "S-BTY-001",
+            "name": "Interior Beauty Sealant",
+            "unit": "linft",
+            "typical_rate": 2.50
+          }
+        ]
+      },
+      "ACCESSORIES_SHIMS": {
+        "code_prefix": "A-SHM",
+        "description": "Setting shims",
+        "line_items": [
+          {
+            "code": "A-SHM-001",
+            "name": "Shims - Plastic",
+            "unit": "lbsum",
+            "typical_rate": 150.00
+          },
+          {
+            "code": "A-SHM-002",
+            "name": "Shims - Metal",
+            "unit": "lbsum",
+            "typical_rate": 250.00
+          }
+        ]
+      },
+      "ACCESSORIES_SETTING_BLOCKS": {
+        "code_prefix": "A-BLK",
+        "description": "Setting blocks and spacers",
+        "line_items": [
+          {
+            "code": "A-BLK-001",
+            "name": "Setting Blocks - Neoprene",
+            "unit": "lbsum",
+            "typical_rate": 200.00
+          },
+          {
+            "code": "A-BLK-002",
+            "name": "Setting Blocks - EPDM",
+            "unit": "lbsum",
+            "typical_rate": 180.00
+          }
+        ]
+      },
+      "INDIRECT_DRIVE_TIME": {
+        "code_prefix": "I-DRV",
+        "description": "Drive time to/from jobsite",
+        "line_items": [
+          {
+            "code": "I-DRV-001",
+            "name": "Drive Time",
+            "unit": "hour",
+            "typical_rate": 55.00
+          }
+        ]
+      },
+      "INDIRECT_PARKING": {
+        "code_prefix": "I-PRK",
+        "description": "Parking costs",
+        "line_items": [
+          {
+            "code": "I-PRK-001",
+            "name": "Parking",
+            "unit": "day",
+            "typical_rate": 25.00
+          }
+        ]
+      },
+      "INDIRECT_SHIPPING": {
+        "code_prefix": "I-SHP",
+        "description": "Shipping and freight",
+        "line_items": [
+          {
+            "code": "I-SHP-001",
+            "name": "Shipping/Freight",
+            "unit": "lbsum",
+            "typical_rate": 500.00
+          }
+        ]
+      },
+      "INDIRECT_CRATING": {
+        "code_prefix": "I-CRT",
+        "description": "Crating and packaging",
+        "line_items": [
+          {
+            "code": "I-CRT-001",
+            "name": "Crating",
+            "unit": "lbsum",
+            "typical_rate": 350.00
+          }
+        ]
+      },
+      "INDIRECT_TOOLS": {
+        "code_prefix": "I-TLS",
+        "description": "Consumable tools and supplies",
+        "line_items": [
+          {
+            "code": "I-TLS-001",
+            "name": "Consumable Tools",
+            "unit": "lbsum",
+            "typical_rate": 300.00
+          }
+        ]
+      },
+      "INDIRECT_EQUIPMENT": {
+        "code_prefix": "I-EQP",
+        "description": "Equipment rental",
+        "line_items": [
+          {
+            "code": "I-EQP-001",
+            "name": "Equipment Rental - Lift",
+            "unit": "day",
+            "typical_rate": 450.00
+          },
+          {
+            "code": "I-EQP-002",
+            "name": "Equipment Rental - Crane",
+            "unit": "day",
+            "typical_rate": 2500.00
+          },
+          {
+            "code": "I-EQP-003",
+            "name": "Equipment Rental - Other",
+            "unit": "day",
+            "typical_rate": 200.00
+          }
+        ]
+      },
+      "INDIRECT_INSURANCE": {
+        "code_prefix": "I-INS",
+        "description": "Project insurance",
+        "line_items": [
+          {
+            "code": "I-INS-001",
+            "name": "Insurance",
+            "unit": "lbsum",
+            "typical_rate": 1500.00
+          }
+        ]
+      }
+    }
+  }
+}
