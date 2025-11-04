@@ -23,6 +23,7 @@ from scripts.file_mover import FileMover
 from scripts.contract_processor import ContractProcessor
 from scripts.sov_generator import SOVGenerator
 from scripts.scope_analyzer import ScopeAnalyzer
+from scripts.budget_generator import BudgetGenerator
 
 
 # Initialize FastAPI app
@@ -333,14 +334,18 @@ async def generate_sov(request: SOVRequest):
         # Step 4: Generate internal budget with cost codes (if requested)
         budget_file = None
         if request.include_budget:
-            from api.budget_generator import generate_internal_budget
-            budget_file = generate_internal_budget(project_number, scope_result['scopes'])
+            budget_gen = BudgetGenerator()
+            budget_result = budget_gen.generate_budget(
+                project_number,
+                contract_analysis,
+                scope_result.get('scope_analysis', scope_result)
+            )
+            if budget_result['success']:
+                budget_file = budget_result['csv_file']
 
         # Step 5: Generate predictive billing schedule (if requested)
+        # TODO: Implement billing schedule generator
         billing_file = None
-        if request.include_billing_schedule:
-            from api.billing_scheduler import generate_billing_schedule
-            billing_file = generate_billing_schedule(project_number, scope_result['scopes'])
 
         # Prepare response
         sov_file = Path(f"Output/Draft_SOV/{project_number}_SOV.json")
