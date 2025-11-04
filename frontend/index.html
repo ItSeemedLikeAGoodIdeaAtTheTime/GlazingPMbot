@@ -363,6 +363,7 @@
         }
 
         let allVendors = [];
+        let selectedVendorIds = new Set(); // Track which vendors are selected
 
         // Load vendors on page load
         document.addEventListener('DOMContentLoaded', loadVendors);
@@ -392,11 +393,8 @@
                 return;
             }
 
-            // Get selected vendors
-            const selectedVendors = [];
-            document.querySelectorAll('#vendorList input[type="checkbox"]:checked').forEach(checkbox => {
-                selectedVendors.push(checkbox.value);
-            });
+            // Get selected vendors from state
+            const selectedVendors = Array.from(selectedVendorIds);
 
             if (selectedVendors.length === 0) {
                 alert('Please select at least one vendor');
@@ -460,6 +458,10 @@
                 if (!response.ok) throw new Error('Failed to load vendors');
 
                 allVendors = await response.json();
+
+                // Initialize all vendors as selected by default
+                selectedVendorIds = new Set(allVendors.map(v => v.id));
+
                 renderVendorList();
             } catch (error) {
                 showStatus('uploadStatus', 'error', `Error loading vendors: ${error.message}`);
@@ -476,7 +478,9 @@
             const vendorList = document.getElementById('vendorList');
             vendorList.innerHTML = filteredVendors.map(vendor => `
                 <div style="padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: start; gap: 12px;">
-                    <input type="checkbox" id="vendor_${vendor.id}" value="${vendor.id}" checked
+                    <input type="checkbox" id="vendor_${vendor.id}" value="${vendor.id}"
+                           ${selectedVendorIds.has(vendor.id) ? 'checked' : ''}
+                           onchange="toggleVendorSelection('${vendor.id}')"
                            style="margin-top: 4px; width: 18px; height: 18px;">
                     <label for="vendor_${vendor.id}" style="flex: 1; cursor: pointer;">
                         <div style="font-weight: 600; color: #2d3748; margin-bottom: 4px;">${vendor.name}</div>
@@ -495,16 +499,24 @@
             `).join('');
         }
 
+        function toggleVendorSelection(vendorId) {
+            if (selectedVendorIds.has(vendorId)) {
+                selectedVendorIds.delete(vendorId);
+            } else {
+                selectedVendorIds.add(vendorId);
+            }
+        }
+
         function selectAllVendors() {
-            document.querySelectorAll('#vendorList input[type="checkbox"]').forEach(checkbox => {
-                checkbox.checked = true;
-            });
+            // Add all vendors to selection
+            allVendors.forEach(vendor => selectedVendorIds.add(vendor.id));
+            renderVendorList();
         }
 
         function deselectAllVendors() {
-            document.querySelectorAll('#vendorList input[type="checkbox"]').forEach(checkbox => {
-                checkbox.checked = false;
-            });
+            // Clear all selections
+            selectedVendorIds.clear();
+            renderVendorList();
         }
 
         function filterVendorList() {
