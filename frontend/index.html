@@ -281,18 +281,12 @@
                 </div>
             </div>
 
-            <button class="btn" onclick="uploadDocuments()">Upload Documents</button>
-
-            <div id="uploadStatus" class="status"></div>
-        </div>
-
-        <div class="card" id="vendorCard" style="display: none;">
-            <h2>Configure Vendors</h2>
-            <p style="margin-bottom: 20px; color: #718096;">
-                Select which vendors you have contracts with. Only selected vendors will be considered for scope matching.
+            <h3 style="margin-top: 30px; margin-bottom: 15px; color: #2d3748;">Select Active Vendors</h3>
+            <p style="margin-bottom: 15px; color: #718096;">
+                Choose which vendors you have contracts with. Only selected vendors will be considered for this project.
             </p>
 
-            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
                 <button class="btn btn-secondary" style="flex: 0 0 auto;" onclick="selectAllVendors()">Select All</button>
                 <button class="btn btn-secondary" style="flex: 0 0 auto;" onclick="deselectAllVendors()">Deselect All</button>
                 <input type="text" id="vendorSearch" placeholder="Search vendors..."
@@ -300,13 +294,15 @@
                        oninput="filterVendorList()">
             </div>
 
-            <div id="vendorList" style="max-height: 400px; overflow-y: auto; border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px;">
-                <!-- Vendors will be loaded here -->
+            <div id="vendorList" style="max-height: 350px; overflow-y: auto; border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <div style="text-align: center; color: #718096; padding: 20px;">
+                    Loading vendors...
+                </div>
             </div>
 
-            <button class="btn" style="margin-top: 20px;" onclick="initializeProject()">Initialize Project with Selected Vendors</button>
+            <button class="btn" onclick="uploadAndInitialize()">Upload Documents & Initialize Project</button>
 
-            <div id="vendorStatus" class="status"></div>
+            <div id="uploadStatus" class="status"></div>
         </div>
 
         <div class="card" id="sovCard" style="display: none;">
@@ -355,9 +351,11 @@
         }
 
         let allVendors = [];
-        let uploadedProjectName = null;
 
-        async function uploadDocuments() {
+        // Load vendors on page load
+        document.addEventListener('DOMContentLoaded', loadVendors);
+
+        async function uploadAndInitialize() {
             const projectName = document.getElementById('projectName').value;
             if (!projectName) {
                 alert('Please enter a project name');
@@ -373,7 +371,18 @@
                 return;
             }
 
-            showStatus('uploadStatus', 'loading', 'Uploading documents...');
+            // Get selected vendors
+            const selectedVendors = [];
+            document.querySelectorAll('#vendorList input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedVendors.push(checkbox.value);
+            });
+
+            if (selectedVendors.length === 0) {
+                alert('Please select at least one vendor');
+                return;
+            }
+
+            showStatus('uploadStatus', 'loading', 'Uploading documents and initializing project...');
 
             // Create FormData
             const formData = new FormData();
@@ -387,7 +396,7 @@
             });
 
             try {
-                // Upload files
+                // Step 1: Upload files
                 const uploadResponse = await fetch(`${API_URL}/api/upload`, {
                     method: 'POST',
                     body: formData
@@ -395,14 +404,27 @@
 
                 if (!uploadResponse.ok) throw new Error('Upload failed');
 
-                uploadedProjectName = projectName;
+                // Step 2: Initialize project with selected vendors
+                const initResponse = await fetch(`${API_URL}/api/project/initialize`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        project_name: projectName,
+                        selected_vendors: selectedVendors
+                    })
+                });
 
-                showStatus('uploadStatus', 'success', '✓ Documents uploaded successfully!');
+                if (!initResponse.ok) throw new Error('Project initialization failed');
 
-                // Load vendors and show vendor selection card
-                await loadVendors();
-                document.getElementById('vendorCard').style.display = 'block';
-                document.getElementById('vendorCard').scrollIntoView({ behavior: 'smooth' });
+                const result = await initResponse.json();
+                currentProjectNumber = result.project_number;
+
+                showStatus('uploadStatus', 'success',
+                    `✓ Project ${result.project_number} initialized with ${selectedVendors.length} vendors!`);
+
+                // Show SOV generation card
+                document.getElementById('sovCard').style.display = 'block';
+                document.getElementById('sovCard').scrollIntoView({ behavior: 'smooth' });
 
             } catch (error) {
                 showStatus('uploadStatus', 'error', `Error: ${error.message}`);
@@ -464,46 +486,6 @@
 
         function filterVendorList() {
             renderVendorList();
-        }
-
-        async function initializeProject() {
-            const selectedVendors = [];
-            document.querySelectorAll('#vendorList input[type="checkbox"]:checked').forEach(checkbox => {
-                selectedVendors.push(checkbox.value);
-            });
-
-            if (selectedVendors.length === 0) {
-                alert('Please select at least one vendor');
-                return;
-            }
-
-            showStatus('vendorStatus', 'loading', 'Initializing project with selected vendors...');
-
-            try {
-                const initResponse = await fetch(`${API_URL}/api/project/initialize`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        project_name: uploadedProjectName,
-                        selected_vendors: selectedVendors
-                    })
-                });
-
-                if (!initResponse.ok) throw new Error('Project initialization failed');
-
-                const result = await initResponse.json();
-                currentProjectNumber = result.project_number;
-
-                showStatus('vendorStatus', 'success',
-                    `✓ Project ${result.project_number} initialized with ${selectedVendors.length} vendors!`);
-
-                // Show SOV card
-                document.getElementById('sovCard').style.display = 'block';
-                document.getElementById('sovCard').scrollIntoView({ behavior: 'smooth' });
-
-            } catch (error) {
-                showStatus('vendorStatus', 'error', `Error: ${error.message}`);
-            }
         }
 
         async function generateSOV() {
