@@ -10,7 +10,7 @@ from datetime import datetime
 import time
 from anthropic import Anthropic
 from PyPDF2 import PdfReader
-from logger import AgentActivityLog, ProjectRegistry
+from scripts.logger import AgentActivityLog, ProjectRegistry
 
 
 class ContractProcessor:

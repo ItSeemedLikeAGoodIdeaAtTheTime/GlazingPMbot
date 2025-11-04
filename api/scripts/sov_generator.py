@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 import time
 from anthropic import Anthropic
-from logger import AgentActivityLog, ProjectRegistry
+from scripts.logger import AgentActivityLog, ProjectRegistry
 
 
 class SOVGenerator:

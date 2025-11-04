@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import time
-from logger import ProjectRegistry, AgentActivityLog, EmailIntakeLog
+from scripts.logger import ProjectRegistry, AgentActivityLog, EmailIntakeLog
 
 
 class FileMover:
