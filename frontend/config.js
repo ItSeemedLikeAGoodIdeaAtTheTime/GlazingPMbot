@@ -11,7 +11,7 @@ const CONFIG = {
 
     // API URLs
     API_URL_LOCAL: 'http://localhost:8000',
-    API_URL_PRODUCTION: 'https://your-backend-url.railway.app',  // Update when backend is deployed
+    API_URL_PRODUCTION: 'https://glazing-pm-api-737221617355.us-central1.run.app',  // Cloud Run backend
 
     // Get current API URL based on environment
     get API_URL() {
