@@ -26,6 +26,7 @@ from scripts.scope_analyzer import ScopeAnalyzer
 from scripts.budget_generator import BudgetGenerator
 from scripts.template_processor import TemplateProcessor
 from scripts.ai_estimator import AIEstimator
+from scripts.submittal_generator import SubmittalGenerator, generate_submittal_log_excel
 
 
 # Initialize FastAPI app
@@ -907,6 +908,175 @@ async def get_project_budgets(project_number: str):
 
         return {"budgets": budgets}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# SUBMITTAL LOG ENDPOINTS
+# ============================================================================
+
+class SubmittalLogRequest(BaseModel):
+    project_number: str
+    include_standard: bool = True  # Include standard glazing submittals
+    iterations: int = 2  # Number of AI analysis passes
+
+
+class SubmittalLogResponse(BaseModel):
+    success: bool
+    project_number: str
+    total_items: int
+    json_file: Optional[str] = None
+    excel_file: Optional[str] = None
+    summary: Optional[dict] = None
+    message: str
+
+
+@app.post("/api/submittal-log/generate", response_model=SubmittalLogResponse)
+async def generate_submittal_log(request: SubmittalLogRequest):
+    """
+    Generate a submittal log from project specs and drawings.
+
+    Uses AI to analyze specifications and identify submittal requirements.
+    Runs multiple analysis passes to ensure thoroughness.
+    Can include standard glazing submittals as baseline.
+    """
+    try:
+        project_number = request.project_number
+
+        # Find project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            # Create minimal project structure if needed
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+
+        # Generate submittal log
+        generator = SubmittalGenerator()
+        result = generator.generate_submittal_log(
+            project_number=project_number,
+            project_folder=project_folder,
+            include_standard=request.include_standard,
+            iterations=request.iterations
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail="Submittal log generation failed")
+
+        # Save JSON output
+        output_folder = Path("Output/Submittal_Logs")
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        json_file = output_folder / f"{project_number}_submittal_log.json"
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2)
+
+        # Generate Excel
+        excel_file = output_folder / f"{project_number}_submittal_log.xlsx"
+        generate_submittal_log_excel(result["submittals"], excel_file)
+
+        return SubmittalLogResponse(
+            success=True,
+            project_number=project_number,
+            total_items=result["summary"]["total_items"],
+            json_file=str(json_file),
+            excel_file=str(excel_file),
+            summary=result["summary"],
+            message=f"Generated {result['summary']['total_items']} submittal items"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_number}/submittal-log")
+async def get_submittal_log(project_number: str):
+    """
+    Get the current submittal log for a project.
+    """
+    try:
+        json_file = Path(f"Output/Submittal_Logs/{project_number}_submittal_log.json")
+
+        if not json_file.exists():
+            return {"submittals": [], "exists": False}
+
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        return {
+            "exists": True,
+            "submittals": data.get("submittals", []),
+            "summary": data.get("summary", {})
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/project/{project_number}/submittal-log/{item_number}")
+async def update_submittal_item(project_number: str, item_number: str, updates: dict):
+    """
+    Update a specific submittal item (status, dates, notes).
+    """
+    try:
+        json_file = Path(f"Output/Submittal_Logs/{project_number}_submittal_log.json")
+
+        if not json_file.exists():
+            raise HTTPException(status_code=404, detail="Submittal log not found")
+
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Find and update the item
+        updated = False
+        for item in data.get("submittals", []):
+            if item.get("item_number") == item_number:
+                # Update allowed fields
+                for key in ["status", "due_date", "submitted_date", "approved_date", "notes", "vendor_id"]:
+                    if key in updates:
+                        item[key] = updates[key]
+                updated = True
+                break
+
+        if not updated:
+            raise HTTPException(status_code=404, detail=f"Submittal item {item_number} not found")
+
+        # Save updated data
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+        return {"success": True, "message": f"Updated {item_number}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/download/submittal_log/{project_number}")
+async def download_submittal_log(project_number: str, format: str = "excel"):
+    """
+    Download submittal log as Excel or JSON.
+    """
+    try:
+        if format == "json":
+            file_path = Path(f"Output/Submittal_Logs/{project_number}_submittal_log.json")
+        else:
+            file_path = Path(f"Output/Submittal_Logs/{project_number}_submittal_log.xlsx")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Submittal log not found")
+
+        return FileResponse(
+            file_path,
+            media_type="application/octet-stream",
+            filename=file_path.name
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
