@@ -122,6 +122,45 @@ class PreviousBillingUpload(BaseModel):
     file_url: str  # URL to the uploaded file in Supabase storage
 
 
+# Draft/Review workflow models
+class BudgetDraftRequest(BaseModel):
+    project_number: str
+
+
+class BudgetDraftResponse(BaseModel):
+    success: bool
+    project_number: str
+    line_items: List[dict]
+    message: str
+
+
+class BudgetFinalizeRequest(BaseModel):
+    project_number: str
+    line_items: List[dict]
+
+
+class SOVDraftRequest(BaseModel):
+    project_number: str
+    billing_month: str
+    billing_year: int
+
+
+class SOVDraftResponse(BaseModel):
+    success: bool
+    project_number: str
+    billing_month: str
+    billing_year: int
+    line_items: List[dict]
+    message: str
+
+
+class SOVFinalizeRequest(BaseModel):
+    project_number: str
+    billing_month: str
+    billing_year: int
+    line_items: List[dict]
+
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -719,6 +758,144 @@ async def generate_budget(request: BudgetRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/budget/generate-draft", response_model=BudgetDraftResponse)
+async def generate_budget_draft(request: BudgetDraftRequest):
+    """
+    Generate budget draft for human review before finalizing.
+    Returns line items that user can adjust before committing.
+    """
+    try:
+        project_number = request.project_number
+
+        # Find project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+
+        # Run AI estimation
+        estimator = AIEstimator()
+        result = estimator.generate_budget(
+            project_number=project_number,
+            project_folder=project_folder,
+            template_path=None,
+            revision=0  # Draft, not saved yet
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Budget generation failed"))
+
+        # Extract line items for review
+        budget_data = result.get("budget_data", {})
+        line_items = []
+
+        for category in budget_data.get("categories", []):
+            for item in category.get("items", []):
+                line_items.append({
+                    "category": category.get("name", "General"),
+                    "item": item.get("description", ""),
+                    "quantity": item.get("quantity", 1),
+                    "unit": item.get("unit", "LS"),
+                    "unit_cost": item.get("unit_cost", 0),
+                    "extended": item.get("extended", 0),
+                    "notes": item.get("notes", "")
+                })
+
+        return BudgetDraftResponse(
+            success=True,
+            project_number=project_number,
+            line_items=line_items,
+            message="Draft budget generated for review"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/budget/finalize", response_model=BudgetResponse)
+async def finalize_budget(request: BudgetFinalizeRequest):
+    """
+    Finalize budget with user-reviewed line items.
+    Saves the final budget with user adjustments.
+    """
+    try:
+        project_number = request.project_number
+        line_items = request.line_items
+
+        # Determine next revision number
+        existing_budgets = list(Path("Output/Budgets").glob(f"{project_number}_budget_rev*.json"))
+        if existing_budgets:
+            revisions = []
+            for f in existing_budgets:
+                try:
+                    rev = int(f.stem.split("_rev")[1])
+                    revisions.append(rev)
+                except:
+                    pass
+            revision = max(revisions) + 1 if revisions else 1
+        else:
+            revision = 1
+
+        # Group line items by category
+        categories = {}
+        grand_total = 0
+
+        for item in line_items:
+            cat_name = item.get("category", "General")
+            if cat_name not in categories:
+                categories[cat_name] = {"name": cat_name, "items": [], "subtotal": 0}
+
+            categories[cat_name]["items"].append({
+                "description": item.get("item", ""),
+                "quantity": item.get("quantity", 1),
+                "unit": item.get("unit", "LS"),
+                "unit_cost": item.get("unit_cost", 0),
+                "extended": item.get("extended", 0),
+                "notes": item.get("notes", "")
+            })
+            categories[cat_name]["subtotal"] += item.get("extended", 0)
+            grand_total += item.get("extended", 0)
+
+        # Build final budget structure
+        budget_data = {
+            "metadata": {
+                "project_number": project_number,
+                "revision": revision,
+                "generated_at": datetime.now().isoformat(),
+                "reviewed": True
+            },
+            "categories": list(categories.values()),
+            "summary": {
+                "grand_total": grand_total,
+                "category_count": len(categories),
+                "line_item_count": len(line_items)
+            }
+        }
+
+        # Save JSON
+        output_folder = Path("Output/Budgets")
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        json_file = output_folder / f"{project_number}_budget_rev{revision}.json"
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(budget_data, f, indent=2)
+
+        return BudgetResponse(
+            success=True,
+            project_number=project_number,
+            revision=revision,
+            json_file=str(json_file),
+            excel_file=None,
+            summary=budget_data["summary"],
+            message=f"Budget Rev {revision} finalized"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/sov/generate", response_model=SOVGenerateResponse)
 async def generate_sov_monthly(request: SOVGenerateRequest):
     """
@@ -781,6 +958,136 @@ async def generate_sov_monthly(request: SOVGenerateRequest):
             excel_file=result.get("excel_file"),
             summary=result.get("sov_data", {}).get("summary"),
             message=f"SOV for {billing_month} {billing_year} generated successfully"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sov/generate-draft", response_model=SOVDraftResponse)
+async def generate_sov_draft(request: SOVDraftRequest):
+    """
+    Generate SOV draft for human review before finalizing.
+    Returns line items that user can adjust billing amounts before committing.
+    """
+    try:
+        project_number = request.project_number
+        billing_month = request.billing_month
+        billing_year = request.billing_year
+
+        # Find project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+
+        # Run AI estimation
+        estimator = AIEstimator()
+        result = estimator.generate_sov(
+            project_number=project_number,
+            project_folder=project_folder,
+            billing_month=billing_month,
+            billing_year=billing_year,
+            template_path=None
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "SOV generation failed"))
+
+        # Extract line items for review
+        sov_data = result.get("sov_data", {})
+        line_items = []
+
+        for item in sov_data.get("line_items", []):
+            line_items.append({
+                "item_number": item.get("item_number", ""),
+                "description": item.get("description", ""),
+                "scheduled_value": item.get("scheduled_value", 0),
+                "previous_billed": item.get("previous_billed", 0),
+                "this_period": item.get("this_period", 0),
+                "stored_materials": item.get("stored_materials", 0),
+                "total_completed": item.get("total_completed", 0),
+                "balance_to_finish": item.get("balance_to_finish", 0),
+                "percent_complete": item.get("percent_complete", 0)
+            })
+
+        return SOVDraftResponse(
+            success=True,
+            project_number=project_number,
+            billing_month=billing_month,
+            billing_year=billing_year,
+            line_items=line_items,
+            message="Draft SOV generated for review"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sov/finalize", response_model=SOVGenerateResponse)
+async def finalize_sov(request: SOVFinalizeRequest):
+    """
+    Finalize SOV with user-reviewed billing amounts.
+    Saves the final SOV with user adjustments.
+    """
+    try:
+        project_number = request.project_number
+        billing_month = request.billing_month
+        billing_year = request.billing_year
+        line_items = request.line_items
+
+        # Calculate totals
+        total_scheduled = sum(item.get("scheduled_value", 0) for item in line_items)
+        total_this_period = sum(item.get("this_period", 0) for item in line_items)
+        total_completed = sum(item.get("total_completed", 0) for item in line_items)
+
+        # Build SOV structure
+        sov_data = {
+            "metadata": {
+                "project_number": project_number,
+                "month": billing_month,
+                "year": billing_year,
+                "generated_at": datetime.now().isoformat(),
+                "reviewed": True
+            },
+            "line_items": line_items,
+            "summary": {
+                "total_scheduled_value": total_scheduled,
+                "total_this_period": total_this_period,
+                "total_completed": total_completed,
+                "overall_percent_complete": round((total_completed / total_scheduled * 100) if total_scheduled > 0 else 0, 1)
+            }
+        }
+
+        # Save to billings folder
+        json_file_path = None
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if project_folders:
+            billings_folder = project_folders[0] / "billings"
+            billings_folder.mkdir(parents=True, exist_ok=True)
+
+            month_num = {
+                "january": 1, "february": 2, "march": 3, "april": 4,
+                "may": 5, "june": 6, "july": 7, "august": 8,
+                "september": 9, "october": 10, "november": 11, "december": 12
+            }.get(billing_month.lower(), 0)
+
+            json_file_path = billings_folder / f"{billing_year}_{month_num:02d}_{billing_month}.json"
+            with open(json_file_path, 'w', encoding='utf-8') as f:
+                json.dump(sov_data, f, indent=2)
+
+        return SOVGenerateResponse(
+            success=True,
+            project_number=project_number,
+            billing_month=billing_month,
+            billing_year=billing_year,
+            application_number=None,
+            json_file=str(json_file_path) if json_file_path else None,
+            excel_file=None,
+            summary=sov_data["summary"],
+            message=f"SOV for {billing_month} {billing_year} finalized"
         )
 
     except Exception as e:
