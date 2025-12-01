@@ -27,6 +27,7 @@ from scripts.budget_generator import BudgetGenerator
 from scripts.template_processor import TemplateProcessor
 from scripts.ai_estimator import AIEstimator
 from scripts.submittal_generator import SubmittalGenerator, generate_submittal_log_excel
+from scripts.document_reviewer import DocumentReviewer, review_document
 
 
 # Initialize FastAPI app
@@ -1079,6 +1080,196 @@ async def download_submittal_log(project_number: str, format: str = "excel"):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# DOCUMENT REVIEW ENDPOINTS
+# ============================================================================
+
+class DocumentReviewRequest(BaseModel):
+    document_type: str  # contract, drawings, specs, schedule, proposal, vendor_quotes, vendor_invoices
+    document_content: str  # Text extracted from PDF
+    file_name: str
+    previous_review: Optional[dict] = None  # For re-review iterations
+    human_feedback: Optional[str] = None  # Human corrections/notes
+
+
+class DocumentReviewResponse(BaseModel):
+    success: bool
+    document_type: str
+    file_name: str
+    extracted_data: Optional[dict] = None
+    summary: Optional[str] = None
+    iteration: int = 1
+    reviewed_at: Optional[str] = None
+    message: str
+
+
+@app.post("/api/document/review", response_model=DocumentReviewResponse)
+async def review_document_endpoint(request: DocumentReviewRequest):
+    """
+    Review a document and extract structured data based on document type.
+
+    Document types and what they extract:
+    - contract: project info, terms, scope, schedule, special conditions
+    - drawings: systems, glass schedule, frames, hardware, dimensions
+    - specs: sections, products, submittals, materials, warranties
+    - schedule: dates, milestones, phasing, dependencies
+    - proposal: pricing, scope, assumptions
+    - vendor_quotes: vendor info, pricing, materials, terms
+    - vendor_invoices: invoice details, line items, amounts
+
+    Supports iteration with human feedback for corrections.
+    """
+    try:
+        reviewer = DocumentReviewer()
+
+        result = reviewer.review_document(
+            doc_type=request.document_type,
+            doc_content=request.document_content,
+            file_name=request.file_name,
+            previous_review=request.previous_review,
+            human_feedback=request.human_feedback
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Review failed"))
+
+        # Generate human-readable summary
+        summary = reviewer.generate_review_summary(
+            result.get("extracted_data", {}),
+            request.document_type
+        )
+
+        return DocumentReviewResponse(
+            success=True,
+            document_type=request.document_type,
+            file_name=request.file_name,
+            extracted_data=result.get("extracted_data"),
+            summary=summary,
+            iteration=result.get("iteration", 1),
+            reviewed_at=result.get("reviewed_at"),
+            message=f"Document reviewed (iteration {result.get('iteration', 1)})"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/document/review-with-file")
+async def review_document_with_file(
+    document_type: str,
+    file: UploadFile = File(...),
+    human_feedback: Optional[str] = None
+):
+    """
+    Upload a document file and review it.
+    Extracts text from PDF and runs AI review.
+    """
+    try:
+        import fitz  # PyMuPDF for PDF text extraction
+
+        # Read file content
+        content = await file.read()
+
+        # Extract text from PDF
+        doc_content = ""
+        if file.filename.lower().endswith('.pdf'):
+            pdf_doc = fitz.open(stream=content, filetype="pdf")
+            for page in pdf_doc:
+                doc_content += page.get_text()
+            pdf_doc.close()
+        else:
+            # For non-PDF files, try to decode as text
+            try:
+                doc_content = content.decode('utf-8')
+            except:
+                doc_content = content.decode('latin-1')
+
+        if not doc_content.strip():
+            raise HTTPException(status_code=400, detail="Could not extract text from document")
+
+        # Run review
+        reviewer = DocumentReviewer()
+        result = reviewer.review_document(
+            doc_type=document_type,
+            doc_content=doc_content,
+            file_name=file.filename,
+            human_feedback=human_feedback
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Review failed"))
+
+        summary = reviewer.generate_review_summary(
+            result.get("extracted_data", {}),
+            document_type
+        )
+
+        return {
+            "success": True,
+            "document_type": document_type,
+            "file_name": file.filename,
+            "extracted_data": result.get("extracted_data"),
+            "summary": summary,
+            "iteration": result.get("iteration", 1),
+            "reviewed_at": result.get("reviewed_at"),
+            "text_length": len(doc_content),
+            "message": f"Document reviewed successfully"
+        }
+
+    except HTTPException:
+        raise
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PDF processing library not available. Install PyMuPDF: pip install pymupdf")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/document/review-types")
+async def get_review_types():
+    """Get available document types and what data they extract."""
+    return {
+        "types": [
+            {
+                "id": "contract",
+                "label": "Contract",
+                "extracts": ["Project info", "Contract terms", "Scope of work", "Schedule", "Special conditions"]
+            },
+            {
+                "id": "drawings",
+                "label": "Drawings",
+                "extracts": ["Systems", "Glass schedule", "Frame/metal specs", "Hardware", "Dimensions", "Quantities"]
+            },
+            {
+                "id": "specs",
+                "label": "Specifications",
+                "extracts": ["Spec sections", "Products", "Submittals", "Materials", "Warranties", "Quality assurance"]
+            },
+            {
+                "id": "schedule",
+                "label": "Schedule",
+                "extracts": ["Key dates", "Milestones", "Phasing", "Dependencies", "Durations"]
+            },
+            {
+                "id": "proposal",
+                "label": "Proposal/Bid",
+                "extracts": ["Pricing", "Scope included", "Assumptions", "Exclusions"]
+            },
+            {
+                "id": "vendor_quotes",
+                "label": "Vendor Quote",
+                "extracts": ["Vendor info", "Pricing", "Materials", "Lead times", "Terms"]
+            },
+            {
+                "id": "vendor_invoices",
+                "label": "Vendor Invoice",
+                "extracts": ["Invoice details", "Line items", "Amounts", "References"]
+            }
+        ]
+    }
 
 
 # Run the server
