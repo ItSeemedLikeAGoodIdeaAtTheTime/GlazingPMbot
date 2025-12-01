@@ -24,6 +24,8 @@ from scripts.contract_processor import ContractProcessor
 from scripts.sov_generator import SOVGenerator
 from scripts.scope_analyzer import ScopeAnalyzer
 from scripts.budget_generator import BudgetGenerator
+from scripts.template_processor import TemplateProcessor
+from scripts.ai_estimator import AIEstimator
 
 
 # Initialize FastAPI app
@@ -71,8 +73,51 @@ class SOVResponse(BaseModel):
     sov_file: str
     budget_file: Optional[str] = None
     billing_schedule_file: Optional[str] = None
+    sov_excel_file: Optional[str] = None
+    budget_excel_file: Optional[str] = None
     scopes: List[dict] = []
     message: str
+
+
+# New models for separate Budget and SOV generation
+class BudgetRequest(BaseModel):
+    project_number: str
+    revision: Optional[int] = None  # Auto-increment if not provided
+
+
+class BudgetResponse(BaseModel):
+    success: bool
+    project_number: str
+    revision: int
+    json_file: Optional[str] = None
+    excel_file: Optional[str] = None
+    summary: Optional[dict] = None
+    message: str
+
+
+class SOVGenerateRequest(BaseModel):
+    project_number: str
+    billing_month: str  # e.g., "September"
+    billing_year: int   # e.g., 2024
+
+
+class SOVGenerateResponse(BaseModel):
+    success: bool
+    project_number: str
+    billing_month: str
+    billing_year: int
+    application_number: Optional[int] = None
+    json_file: Optional[str] = None
+    excel_file: Optional[str] = None
+    summary: Optional[dict] = None
+    message: str
+
+
+class PreviousBillingUpload(BaseModel):
+    project_number: str
+    billing_month: str
+    billing_year: int
+    file_url: str  # URL to the uploaded file in Supabase storage
 
 
 # Root endpoint
@@ -170,12 +215,15 @@ async def upload_documents(
     specifications: Optional[UploadFile] = File(None),
     drawings: Optional[UploadFile] = File(None),
     schedule: Optional[UploadFile] = File(None),
-    proposal: Optional[UploadFile] = File(None)
+    proposal: Optional[UploadFile] = File(None),
+    sov_template: Optional[UploadFile] = File(None),
+    budget_template: Optional[UploadFile] = File(None)
 ):
     """
     Upload project documents
 
-    Creates project folder and saves uploaded files
+    Creates project folder and saves uploaded files.
+    Templates (sov_template, budget_template) are stored in a Templates subfolder.
     """
 
     try:
@@ -183,9 +231,14 @@ async def upload_documents(
         project_folder = Path("Input") / project_name
         project_folder.mkdir(parents=True, exist_ok=True)
 
+        # Create templates subfolder
+        templates_folder = project_folder / "Templates"
+        templates_folder.mkdir(parents=True, exist_ok=True)
+
         # Save uploaded files
         uploaded_files = []
 
+        # Regular documents
         for file, label in [
             (contract, "contract"),
             (specifications, "specifications"),
@@ -207,10 +260,31 @@ async def upload_documents(
                     "size": len(content)
                 })
 
+        # Template files - save to Templates subfolder
+        for file, label in [
+            (sov_template, "sov_template"),
+            (budget_template, "budget_template")
+        ]:
+            if file and file.filename:
+                file_path = templates_folder / file.filename
+
+                # Read and save file
+                content = await file.read()
+                with open(file_path, 'wb') as f:
+                    f.write(content)
+
+                uploaded_files.append({
+                    "type": label,
+                    "filename": file.filename,
+                    "size": len(content),
+                    "path": str(file_path)
+                })
+
         return {
             "success": True,
             "project_name": project_name,
             "folder": str(project_folder),
+            "templates_folder": str(templates_folder),
             "uploaded_files": uploaded_files,
             "message": f"Uploaded {len(uploaded_files)} documents"
         }
@@ -354,6 +428,69 @@ async def generate_sov(request: SOVRequest):
         # TODO: Implement billing schedule generator
         billing_file = None
 
+        # Step 6: Fill Excel templates if they exist
+        sov_excel_file = None
+        budget_excel_file = None
+
+        if project_folders:
+            templates_folder = project_folders[0] / "06-Templates"
+
+            if templates_folder.exists():
+                # Collect all project data for template filling
+                project_data = {
+                    "project_number": project_number,
+                    "contract_analysis": contract_analysis,
+                    "scope_analysis": scope_result.get('scope_analysis', scope_result)
+                }
+
+                # Load generated SOV data
+                sov_json_file = Path(f"Output/Draft_SOV/{project_number}_SOV.json")
+                if sov_json_file.exists():
+                    with open(sov_json_file, 'r', encoding='utf-8') as f:
+                        project_data["sov"] = json.load(f)
+
+                # Load generated budget data
+                budget_json_file = Path(f"Output/Budgets/{project_number}_internal_budget.json")
+                if budget_json_file.exists():
+                    with open(budget_json_file, 'r', encoding='utf-8') as f:
+                        project_data["budget"] = json.load(f)
+
+                template_processor = TemplateProcessor()
+
+                # Process SOV template if exists
+                sov_templates = list(templates_folder.glob("*sov*")) + list(templates_folder.glob("*SOV*"))
+                if not sov_templates:
+                    # Look for any Excel that might be SOV
+                    sov_templates = [f for f in templates_folder.glob("*.xlsx") if "budget" not in f.name.lower()]
+
+                if sov_templates:
+                    try:
+                        sov_template_result = template_processor.process_template(
+                            template_path=sov_templates[0],
+                            project_number=project_number,
+                            project_data=project_data,
+                            template_type="sov"
+                        )
+                        if sov_template_result.get("success"):
+                            sov_excel_file = sov_template_result.get("output_path")
+                    except Exception as e:
+                        print(f"WARNING: SOV template processing failed: {e}")
+
+                # Process Budget template if exists
+                budget_templates = list(templates_folder.glob("*budget*")) + list(templates_folder.glob("*Budget*"))
+                if budget_templates:
+                    try:
+                        budget_template_result = template_processor.process_template(
+                            template_path=budget_templates[0],
+                            project_number=project_number,
+                            project_data=project_data,
+                            template_type="budget"
+                        )
+                        if budget_template_result.get("success"):
+                            budget_excel_file = budget_template_result.get("output_path")
+                    except Exception as e:
+                        print(f"WARNING: Budget template processing failed: {e}")
+
         # Prepare response
         sov_file = Path(f"Output/Draft_SOV/{project_number}_SOV.json")
 
@@ -363,6 +500,8 @@ async def generate_sov(request: SOVRequest):
             sov_file=str(sov_file),
             budget_file=budget_file,
             billing_schedule_file=billing_file,
+            sov_excel_file=sov_excel_file,
+            budget_excel_file=budget_excel_file,
             scopes=[
                 {
                     "type": scope['scope_type'],
@@ -375,7 +514,7 @@ async def generate_sov(request: SOVRequest):
                 }
                 for scope in scope_result['scopes']
             ],
-            message="SOV generated successfully"
+            message="SOV generated successfully" + (" (with Excel templates)" if sov_excel_file or budget_excel_file else "")
         )
 
     except Exception as e:
@@ -456,6 +595,7 @@ async def download_file(file_type: str, project_number: str):
     file_map = {
         "sov_json": f"Output/Draft_SOV/{project_number}_SOV.json",
         "sov_csv": f"Output/Draft_SOV/{project_number}_SOV.csv",
+        "sov": f"Output/Draft_SOV/{project_number}_SOV.csv",
         "analysis": f"Output/Reports/{project_number}_contract_analysis.md",
         "scope": f"Output/Scope_Analysis/{project_number}_scope_analysis.md",
         "budget": f"Output/Budgets/{project_number}_internal_budget.csv",
@@ -463,6 +603,17 @@ async def download_file(file_type: str, project_number: str):
     }
 
     file_path = Path(file_map.get(file_type, ''))
+
+    # Handle Excel template downloads (find most recent)
+    if file_type in ["sov_excel", "budget_excel"]:
+        template_type = "sov" if file_type == "sov_excel" else "budget"
+        filled_templates = sorted(
+            Path("Output/Filled_Templates").glob(f"{project_number}_{template_type}_*.xlsx"),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True
+        )
+        if filled_templates:
+            file_path = filled_templates[0]
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
@@ -482,6 +633,280 @@ async def get_cost_codes():
     try:
         with open("cost_codes.json", 'r', encoding='utf-8') as f:
             return json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# NEW AI-POWERED ENDPOINTS (Separate Budget and SOV)
+# ============================================================================
+
+@app.post("/api/budget/generate", response_model=BudgetResponse)
+async def generate_budget(request: BudgetRequest):
+    """
+    Generate internal budget using AI estimation.
+
+    Uses all available context:
+    - Contract analysis
+    - Vendor quotes
+    - Invoices
+    - Industry knowledge
+
+    No required documents - works with whatever data is available.
+    """
+    try:
+        project_number = request.project_number
+
+        # Find project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            # Create minimal project structure if needed
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+
+        # Determine revision number
+        revision = request.revision
+        if revision is None:
+            # Auto-increment: find highest existing revision
+            existing_budgets = list(Path("Output/Budgets").glob(f"{project_number}_budget_rev*.json"))
+            if existing_budgets:
+                revisions = []
+                for f in existing_budgets:
+                    try:
+                        rev = int(f.stem.split("_rev")[1])
+                        revisions.append(rev)
+                    except:
+                        pass
+                revision = max(revisions) + 1 if revisions else 1
+            else:
+                revision = 1
+
+        # Find budget template if available
+        templates_folder = project_folder / "06-Templates"
+        budget_template = None
+        if templates_folder.exists():
+            budget_templates = list(templates_folder.glob("*budget*")) + list(templates_folder.glob("*Budget*"))
+            if budget_templates:
+                budget_template = budget_templates[0]
+
+        # Run AI estimation
+        estimator = AIEstimator()
+        result = estimator.generate_budget(
+            project_number=project_number,
+            project_folder=project_folder,
+            template_path=budget_template,
+            revision=revision
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "Budget generation failed"))
+
+        return BudgetResponse(
+            success=True,
+            project_number=project_number,
+            revision=revision,
+            json_file=result.get("json_file"),
+            excel_file=result.get("excel_file"),
+            summary=result.get("budget_data", {}).get("summary"),
+            message=f"Budget Rev {revision} generated successfully"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sov/generate", response_model=SOVGenerateResponse)
+async def generate_sov_monthly(request: SOVGenerateRequest):
+    """
+    Generate Schedule of Values for a specific billing month.
+
+    Uses all available context:
+    - Contract analysis
+    - Vendor quotes
+    - Invoices
+    - Previous billings (constrains structure)
+
+    Each SOV chains from the previous month's billing.
+    No required documents - works with whatever data is available.
+    """
+    try:
+        project_number = request.project_number
+        billing_month = request.billing_month
+        billing_year = request.billing_year
+
+        # Find project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            # Create minimal project structure if needed
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+
+        # Find SOV template if available
+        templates_folder = project_folder / "06-Templates"
+        sov_template = None
+        if templates_folder.exists():
+            sov_templates = list(templates_folder.glob("*sov*")) + list(templates_folder.glob("*SOV*"))
+            if not sov_templates:
+                # Any Excel that's not a budget
+                sov_templates = [f for f in templates_folder.glob("*.xlsx") if "budget" not in f.name.lower()]
+            if sov_templates:
+                sov_template = sov_templates[0]
+
+        # Run AI estimation
+        estimator = AIEstimator()
+        result = estimator.generate_sov(
+            project_number=project_number,
+            project_folder=project_folder,
+            billing_month=billing_month,
+            billing_year=billing_year,
+            template_path=sov_template
+        )
+
+        if not result["success"]:
+            raise HTTPException(status_code=500, detail=result.get("error", "SOV generation failed"))
+
+        return SOVGenerateResponse(
+            success=True,
+            project_number=project_number,
+            billing_month=billing_month,
+            billing_year=billing_year,
+            application_number=result.get("sov_data", {}).get("application_number"),
+            json_file=result.get("json_file"),
+            excel_file=result.get("excel_file"),
+            summary=result.get("sov_data", {}).get("summary"),
+            message=f"SOV for {billing_month} {billing_year} generated successfully"
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_number}/billings")
+async def get_project_billings(project_number: str):
+    """
+    Get list of all billings (previous SOVs) for a project.
+    Returns them in chronological order.
+    """
+    try:
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            return {"billings": []}
+
+        project_folder = project_folders[0]
+        billings_folder = project_folder / "billings"
+
+        if not billings_folder.exists():
+            return {"billings": []}
+
+        billings = []
+        for billing_file in sorted(billings_folder.glob("*.json")):
+            with open(billing_file, 'r', encoding='utf-8') as f:
+                billing_data = json.load(f)
+                billings.append({
+                    "month": billing_data.get("month"),
+                    "year": billing_data.get("year"),
+                    "generated_at": billing_data.get("generated_at"),
+                    "file": billing_file.name,
+                    "summary": billing_data.get("sov_data", {}).get("summary")
+                })
+
+        return {"billings": billings}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/project/{project_number}/billings/upload")
+async def upload_previous_billing(
+    project_number: str,
+    billing_month: str,
+    billing_year: int,
+    billing_file: UploadFile = File(...)
+):
+    """
+    Upload a previous billing (historical SOV) to establish the chain.
+    This constrains future SOV generation to match this structure.
+    """
+    try:
+        # Find or create project folder
+        project_folders = list(Path("Projects").glob(f"{project_number}-*"))
+        if not project_folders:
+            project_folders = [Path(f"Projects/{project_number}-Unknown")]
+            project_folders[0].mkdir(parents=True, exist_ok=True)
+
+        project_folder = project_folders[0]
+        billings_folder = project_folder / "billings"
+        billings_folder.mkdir(parents=True, exist_ok=True)
+
+        # Save the uploaded file
+        content = await billing_file.read()
+
+        # Save raw file
+        month_num = {
+            "january": 1, "february": 2, "march": 3, "april": 4,
+            "may": 5, "june": 6, "july": 7, "august": 8,
+            "september": 9, "october": 10, "november": 11, "december": 12
+        }.get(billing_month.lower(), 0)
+
+        raw_file_path = billings_folder / f"{billing_year}_{month_num:02d}_{billing_month}_uploaded{Path(billing_file.filename).suffix}"
+        with open(raw_file_path, 'wb') as f:
+            f.write(content)
+
+        # Create JSON record
+        billing_record = {
+            "month": billing_month,
+            "year": billing_year,
+            "uploaded_at": datetime.now().isoformat(),
+            "source_file": billing_file.filename,
+            "is_uploaded": True,
+            "sov_data": {
+                "note": "Uploaded historical billing - structure will be extracted on next SOV generation"
+            }
+        }
+
+        json_file_path = billings_folder / f"{billing_year}_{month_num:02d}_{billing_month}.json"
+        with open(json_file_path, 'w', encoding='utf-8') as f:
+            json.dump(billing_record, f, indent=2)
+
+        return {
+            "success": True,
+            "message": f"Previous billing for {billing_month} {billing_year} uploaded",
+            "file_saved": str(raw_file_path)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/project/{project_number}/budgets")
+async def get_project_budgets(project_number: str):
+    """
+    Get list of all budget revisions for a project.
+    """
+    try:
+        budgets = []
+        budget_files = sorted(
+            Path("Output/Budgets").glob(f"{project_number}_budget_rev*.json"),
+            key=lambda x: x.stat().st_mtime
+        )
+
+        for budget_file in budget_files:
+            with open(budget_file, 'r', encoding='utf-8') as f:
+                budget_data = json.load(f)
+                metadata = budget_data.get("metadata", {})
+                budgets.append({
+                    "revision": metadata.get("revision", 1),
+                    "generated_at": metadata.get("generated_at"),
+                    "file": budget_file.name,
+                    "summary": budget_data.get("summary")
+                })
+
+        return {"budgets": budgets}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

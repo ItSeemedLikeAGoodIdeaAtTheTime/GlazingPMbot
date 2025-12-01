@@ -74,7 +74,8 @@ class FileMover:
                 "02-Generated-SOV",
                 "03-Purchase-Orders",
                 "04-Shop-Drawings",
-                "05-Correspondence"
+                "05-Correspondence",
+                "06-Templates"
             ]
 
             for folder in subfolders:
@@ -113,6 +114,26 @@ class FileMover:
 
             print(f"\n✅ All {len(pdf_files)} files copied successfully")
 
+            # Copy templates if they exist
+            templates_input_path = input_path / "Templates"
+            templates_dest_path = project_path / "06-Templates"
+            template_files = []
+
+            if templates_input_path.exists():
+                excel_files = list(templates_input_path.glob("*.xlsx")) + list(templates_input_path.glob("*.xls"))
+                if excel_files:
+                    print(f"\n📋 Copying templates:")
+                    for template_file in excel_files:
+                        dest = templates_dest_path / template_file.name
+                        shutil.copy2(template_file, dest)
+                        file_size = template_file.stat().st_size / 1024  # KB
+                        print(f"  ✓ {template_file.name} ({file_size:.1f} KB)")
+                        template_files.append({
+                            'name': template_file.name,
+                            'size_kb': file_size
+                        })
+                    print(f"✅ {len(template_files)} template(s) copied")
+
             # Archive original input folder
             archive_path = self.archive_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{project_name}"
             shutil.move(str(input_path), str(archive_path))
@@ -150,6 +171,8 @@ class FileMover:
                 'project_name': project_name,
                 'project_path': project_path,
                 'files_copied': copied_files,
+                'templates_copied': template_files,
+                'templates_path': str(templates_dest_path) if template_files else None,
                 'duration': duration
             }
 
